@@ -1,0 +1,74 @@
+# This section defines the different services (containers) that make up the application.
+services:
+  # Defines the MariaDB database service.
+  mariadb:
+    container_name: mariadb # Sets a custom name for the container for easier identification.
+    networks:
+      - inception # Connects this service to the 'inception' network, allowing it to communicate with other services on the same network.
+    build:
+      context: requirements/mariadb # Specifies the directory containing the Dockerfile for building the MariaDB image.
+      dockerfile: Dockerfile  # The name of the Dockerfile to use.
+    env_file: .env  # Specifies a file to load environment variables from, used for configuration (e.g., database passwords).
+    volumes:
+      - mariadb:/var/lib/mysql # Mounts a named volume 'mariadb' to the directory where MariaDB stores its data, ensuring data persistence.
+    restart: unless-stopped # Configures the container to restart automatically unless it has been explicitly stopped.
+    expose:
+      - "3306" # Exposes port 3306 to other services on the same network, but not to the host machine.
+
+  # Defines the Nginx web server service.
+  nginx:
+    container_name: nginx
+    volumes:
+      - wordpress:/var/www/html # Mounts the 'wordpress' volume to Nginx's web root, so it can serve the WordPress files.
+    networks:
+      - inception
+    depends_on:
+      - wordpress # Ensures that the 'wordpress' service is started before this Nginx service starts.
+    build:
+      context: requirements/nginx
+      dockerfile: Dockerfile
+    env_file: .env
+    ports:
+      - "443:443" # Maps port 443 (HTTPS) inside the container to port 443 on the host machine.
+    restart: on-failure # The container will only restart if it exits with an error.
+
+  # Defines the WordPress service.
+  wordpress:
+    container_name: wordpress
+    env_file: .env
+    volumes:
+      - wordpress:/var/www/html # Mounts the 'wordpress' volume to store WordPress core files, themes, and plugins.
+    networks:
+      - inception
+    build:
+      context: requirements/wordpress
+      dockerfile: Dockerfile
+    depends_on:
+      - mariadb # Ensures that the 'mariadb' service is started before WordPress, as it needs the database.
+    restart: on-failure
+    expose: 
+      - "9000" # Exposes port 9000 for PHP-FPM, allowing Nginx to forward PHP requests to it.
+
+# This section defines the volumes used by the services for data persistence.
+volumes:
+  # Defines the 'wordpress' named volume.
+  wordpress:
+    driver: local # Specifies that the volume is managed by the local Docker host.
+    driver_opts:
+      type: 'none' # No specific filesystem type is enforced.
+      o: 'bind' # Specifies that this is a bind mount, linking a host path to the container path.
+      device: '/home/wscherre/data/wordpress' # The actual path on the host machine where the WordPress files will be stored.
+  # Defines the 'mariadb' named volume.
+  mariadb:
+    driver: local
+    driver_opts:
+      type: 'none' 
+      o: 'bind'
+      device: '/home/wscherre/data/mariadb' # The path on the host machine for MariaDB data.
+
+# This section defines the networks used by the services.
+networks:
+  # Defines the 'inception' network.
+  inception:
+    driver: bridge # Uses the default bridge network driver, which creates a private network for the containers in this compose file.
+

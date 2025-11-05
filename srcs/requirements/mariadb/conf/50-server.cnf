@@ -1,0 +1,13 @@
+# This section contains settings for the MariaDB server daemon (mysqld).
+[mysqld]
+# Specifies the directory where MariaDB stores its data files.
+datadir = /var/lib/mysql
+# Specifies the path to the Unix socket file that the server uses for local client connections.
+socket  = /run/mysqld/mysqld.sock
+# Configures the server to accept connections from any IP address, not just localhost.
+# This is necessary for the WordPress container to connect to the database.
+bind_address=*
+# Specifies the TCP/IP port on which the server will listen for connections.
+port = 3306
+# Specifies the system user that the mysqld server will run as.
+user = mysql
