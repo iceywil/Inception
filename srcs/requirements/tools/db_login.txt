@@ -2,21 +2,15 @@ docker exec -it mariadb /bin/bash
 
 mysql -u Thanos -p
 
-sudo apt-get remove docker docker-engine docker.io containerd runc
+SHOW TABLES
+USE 
+SELECT * FROM
 
+docker container stop $(docker container ls -q)
+docker system prune -a --volumes
 
-# Update package index and install prerequisites
-sudo apt-get update
-sudo apt-get install ca-certificates curl
+docker run --rm \
+  -v /home/wscherre/data:/target \
+  alpine sh -c "rm -rf /target/mariadb /target/wordpress"
 
-# Add Docker's official GPG key
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-# Set up the repository
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt-get update
+docker stop $(docker ps -qa); docker rm $(docker ps -qa); docker rmi -f $(docker images -qa); docker volume rm $(docker volume ls -q); docker network rm $(docker network ls -q) 2>/dev/null

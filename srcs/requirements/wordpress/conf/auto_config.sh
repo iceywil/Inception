@@ -1,62 +1,78 @@
 #!/bin/bash
+set -euo pipefail
 
 # This script automates the setup of a WordPress installation.
 
 # Create the necessary directories for WordPress files.
-# These directories will be used by the Nginx container to serve the website.
 mkdir -p /var/www/html
-
-# Navigate into the web root directory.
 cd /var/www/html
 
 # Remove any existing files in the directory to ensure a clean installation.
-rm -rf *
+rm -rf ./* || true
 
-# Download the WordPress command-line interface (WP-CLI) from its official repository.
-# WP-CLI is a tool to manage WordPress installations from the command line.
-curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar 
+# Download WP-CLI if not already present
+if [ ! -x /usr/local/bin/wp ]; then
+	echo "Installing wp-cli..."
+	curl -s -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+	chmod +x wp-cli.phar
+	mv wp-cli.phar /usr/local/bin/wp
+fi
 
-# Make the downloaded WP-CLI phar file executable.
-chmod +x wp-cli.phar 
+# Download the latest version of WordPress core files if not already present
+if [ ! -f index.php ]; then
+	echo "Downloading WordPress core..."
+	wp core download --allow-root
+fi
 
-# Move the WP-CLI executable to a directory in the system's PATH, so it can be run as 'wp'.
-mv wp-cli.phar /usr/local/bin/wp
-
-# Download the latest version of WordPress core files.
-# --allow-root is used because this script is run as the root user in the Docker container.
-wp core download --allow-root
-
-# The wp-config.php file is copied from the container's filesystem to the WordPress directory.
+# Copy the wp-config template into place
 cp /wp-config.php /var/www/html/wp-config.php
 
 # Replace placeholder database credentials in wp-config.php with actual values from environment variables.
-# These variables (SQL_DATABASE, SQL_USER, SQL_PASSWORD) are passed to the container from the .env file.
-sed -i -r "s/db1/$SQL_DATABASE/1"   wp-config.php
-sed -i -r "s/user/$SQL_USER/1"  wp-config.php
-sed -i -r "s/pwd/$SQL_PASSWORD/1"    wp-config.php
+# Use '|' as delimiter to avoid errors if values contain '/'. Use global replacement for safety.
+sed -i "s|db1|${SQL_DATABASE}|g" wp-config.php
+sed -i "s|user|${SQL_USER}|g" wp-config.php
+sed -i "s|pwd|${SQL_PASSWORD}|g" wp-config.php
 
-# Run the WordPress installation process.
-# This sets up the site URL, title, admin user, and email.
-# --skip-email prevents sending an email notification upon installation.
-wp core install --url=$DOMAIN_NAME/ --title=$WP_TITLE --admin_user=$WP_ADMIN_USR --admin_password=$WP_ADMIN_PWD --admin_email=$WP_ADMIN_EMAIL --skip-email --allow-root
+# Wait for MariaDB to become reachable before attempting WP install. This avoids intermittent failures
+# when the WordPress container starts before the DB is ready.
+echo "Waiting for MariaDB at 'mariadb' to accept connections..."
+max_attempts=60
+attempt=0
+until mysql -h mariadb -u"${SQL_USER}" -p"${SQL_PASSWORD}" -e 'SELECT 1;' >/dev/null 2>&1; do
+	attempt=$((attempt+1))
+	if [ "$attempt" -ge "$max_attempts" ]; then
+		echo "ERROR: Could not connect to MariaDB after ${max_attempts} attempts." >&2
+		echo "Dumping current /var/www/html/wp-config.php for debugging:" >&2
+		sed -n '1,200p' wp-config.php >&2 || true
+		exit 1
+	fi
+	echo "MariaDB not ready yet (attempt ${attempt}/${max_attempts}), sleeping 2s..."
+	sleep 2
+done
+echo "MariaDB is reachable. Proceeding with WordPress setup."
 
-# Create an additional WordPress user with the 'author' role.
-wp user create $WP_USR $WP_EMAIL --role=author --user_pass=$WP_PWD --allow-root
+# Run the WordPress installation process only if the site isn't already installed
+if ! wp core is-installed --allow-root >/dev/null 2>&1; then
+	echo "Running wp core install..."
+	wp core install --url="${DOMAIN_NAME}/" --title="${WP_TITLE}" --admin_user="${WP_ADMIN_USR}" --admin_password="${WP_ADMIN_PWD}" --admin_email="${WP_ADMIN_EMAIL}" --skip-email --allow-root
 
-# Install and activate the 'Astra' theme.
-wp theme install astra --activate --allow-root
+	# Create an additional WordPress user with the 'author' role.
+	wp user create "${WP_USR}" "${WP_EMAIL}" --role=author --user_pass="${WP_PWD}" --allow-root || true
 
-# Change ownership of all files to www-data so nginx can read them
-chown -R www-data:www-data /var/www/html
+	# Install and activate the 'Astra' theme if available
+	wp theme install astra --activate --allow-root || true
+else
+	echo "WordPress already installed, skipping wp core install."
+fi
 
-# Configure PHP-FPM to listen on port 9000, which is how Nginx will communicate with it.
-# This changes the default socket-based communication to TCP/IP.
-sed -i 's/listen = \/run\/php\/php8.2-fpm.sock/listen = 9000/g' /etc/php/8.2/fpm/pool.d/www.conf
+# Ensure correct ownership so the webserver can read/write files
+chown -R www-data:www-data /var/www/html || true
 
-# Create the directory for the PHP-FPM runtime.
+# Configure PHP-FPM to listen on port 9000 (TCP) rather than socket
+sed -i 's|listen = /run/php/php8.2-fpm.sock|listen = 9000|g' /etc/php/8.2/fpm/pool.d/www.conf || true
+
+# Ensure /run/php exists
 mkdir -p /run/php
 
-# Start the PHP-FPM service in the foreground.
-# -F ensures it runs in the foreground, which is necessary for Docker containers.
-# -R allows the process to run as root.
+# Start PHP-FPM in foreground
 exec /usr/sbin/php-fpm8.2 -F -R

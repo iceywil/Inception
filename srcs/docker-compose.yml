@@ -11,9 +11,15 @@ services:
     env_file: .env  # Specifies a file to load environment variables from, used for configuration (e.g., database passwords).
     volumes:
       - mariadb:/var/lib/mysql # Mounts a named volume 'mariadb' to the directory where MariaDB stores its data, ensuring data persistence.
-    restart: unless-stopped # Configures the container to restart automatically unless it has been explicitly stopped.
+    restart: always # Configures the container to restart automatically unless it has been explicitly stopped.
     expose:
       - "3306" # Exposes port 3306 to other services on the same network, but not to the host machine.
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--silent"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
 
   # Defines the Nginx web server service.
   nginx:
@@ -29,8 +35,8 @@ services:
       dockerfile: Dockerfile
     env_file: .env
     ports:
-      - "443:443" # Maps port 443 (HTTPS) inside the container to port 443 on the host machine.
-    restart: on-failure # The container will only restart if it exits with an error.
+      - "443:443"
+    restart: always # The container will only restart if it exits with an error.
 
   # Defines the WordPress service.
   wordpress:
@@ -44,8 +50,9 @@ services:
       context: requirements/wordpress
       dockerfile: Dockerfile
     depends_on:
-      - mariadb # Ensures that the 'mariadb' service is started before WordPress, as it needs the database.
-    restart: on-failure
+      mariadb:
+        condition: service_healthy # Wait for mariadb healthcheck to pass before starting WordPress
+    restart: always
     expose: 
       - "9000" # Exposes port 9000 for PHP-FPM, allowing Nginx to forward PHP requests to it.
 
