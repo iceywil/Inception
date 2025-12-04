@@ -1,9 +1,11 @@
 # Ensure heavy Vagrant operations (box storage and temp extraction)
-# use the large, authorized storage at /home/wscherre/sgoinfre to avoid
-# running out of space on the local small partition.
-SGOINFRE = "/home/wscherre/sgoinfre"
-VAGRANT_HOME_DIR = File.join(SGOINFRE, ".vagrant.d")
-VAGRANT_TMP_DIR = File.join(SGOINFRE, "vagrant_tmp")
+# use the directory of this Vagrantfile as the root for all paths.
+ROOT_PATH = __dir__
+
+# Ensure heavy Vagrant operations (box storage and temp extraction)
+# use the USB stick to avoid running out of space on the local partition.
+VAGRANT_HOME_DIR = File.join(ROOT_PATH, ".vagrant.d")
+VAGRANT_TMP_DIR = File.join(ROOT_PATH, "vagrant_tmp")
 
 [VAGRANT_HOME_DIR, VAGRANT_TMP_DIR].each do |d|
   begin
@@ -32,11 +34,13 @@ Vagrant.configure("2") do |config|
     vb.gui = true
     # Use a modern graphics controller for Linux guests
     vb.customize ["modifyvm", :id, "--graphicscontroller", "vmsvga"]
+    # Enable bidirectional copy-paste. Requires VirtualBox Guest Additions.
+    vb.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
   end
 
   # --- Dossier partagé (optionnel) ---
-  # Change "./" par un dossier spécifique si tu veux
-  config.vm.synced_folder "/home/wscherre/sgoinfre", "/home/wscherre/sgoinfre"
+  # Sync the entire project directory to /vagrant in the VM
+  config.vm.synced_folder ROOT_PATH, "/vagrant"
 
   # Forward RDP (guest 3389) to host 33890 for remote GUI access
   config.vm.network "forwarded_port", guest: 3389, host: 33890, auto_correct: true
@@ -55,9 +59,9 @@ Vagrant.configure("2") do |config|
       echo "wscherre:changeme" | chpasswd
       usermod -aG sudo wscherre || true
     fi
-    # Ensure the synced directory exists and is owned by the vm user
-    mkdir -p /home/wscherre/sgoinfre || true
+    # Ensure the user owns their home directory and the synced folder
     chown -R wscherre:wscherre /home/wscherre || true
+    chown -R wscherre:wscherre /vagrant || true
 
     echo ">>> Installation des dépendances"
     # Install packages needed to build kernel modules for VirtualBox Guest Additions
@@ -73,8 +77,16 @@ Vagrant.configure("2") do |config|
       sudo \
       build-essential \
       dkms \
+      git \
+      wget \
       "linux-headers-$(uname -r)"
   
+    echo ">>> Installation de Google Chrome"
+    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+    apt-get update -y
+    apt-get install -y google-chrome-stable
+
     echo ">>> Installation d'un bureau léger (Xfce) et LightDM"
     # Install a lightweight desktop, display manager, and the underlying X server
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xfce4 xfce4-goodies lightdm xserver-xorg
@@ -101,8 +113,8 @@ Vagrant.configure("2") do |config|
     DOCKER_COMPOSE_VERSION="2.27.0"
     curl -SL \
       https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-Linux-x86_64 \
-      -o /home/wscherre/sgoinfre/docker-compose
-    chmod +x /home/wscherre/sgoinfre/docker-compose
+      -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
 
     echo ">>> Changement du shell par défaut -> zsh"
     chsh -s $(which zsh) vagrant

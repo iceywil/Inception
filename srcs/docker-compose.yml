@@ -8,7 +8,11 @@ services:
     build:
       context: requirements/mariadb # Specifies the directory containing the Dockerfile for building the MariaDB image.
       dockerfile: Dockerfile  # The name of the Dockerfile to use.
-    env_file: .env  # Specifies a file to load environment variables from, used for configuration (e.g., database passwords).
+    env_file:
+      - .env
+      - ../secrets/db_password.txt
+      - ../secrets/db_root_password.txt
+      - ../secrets/credentials.txt
     volumes:
       - mariadb:/var/lib/mysql # Mounts a named volume 'mariadb' to the directory where MariaDB stores its data, ensuring data persistence.
     restart: always # Configures the container to restart automatically unless it has been explicitly stopped.
@@ -41,7 +45,10 @@ services:
   # Defines the WordPress service.
   wordpress:
     container_name: wordpress
-    env_file: .env
+    env_file:
+      - .env
+      - ../secrets/credentials.txt
+      - ../secrets/db_password.txt
     volumes:
       - wordpress:/var/www/html # Mounts the 'wordpress' volume to store WordPress core files, themes, and plugins.
     networks:

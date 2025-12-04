@@ -2,14 +2,15 @@
 set -euo pipefail
 sb() { echo "[setup_and_up] $*"; }
 
-# Single-run script to: prepare sgoinfre dirs, download/register box, run vagrant up
-SGOINFRE="/home/wscherre/sgoinfre"
+# Single-run script to: prepare project dirs, download/register box, run vagrant up
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BOXURL="https://vagrantcloud.com/debian/boxes/bookworm64/versions/12.20250126.1/providers/virtualbox/amd64/vagrant.box"
-BOXFILE="$SGOINFRE/debian_bookworm64_virtualbox_12.20250126.1.box"
-VAGRANT_HOME="$SGOINFRE/.vagrant.d"
-TMPDIR="$SGOINFRE/vagrant_tmp"
+BOXFILE="$SCRIPT_DIR/debian_bookworm64_virtualbox_12.20250126.1.box"
+VAGRANT_HOME="$SCRIPT_DIR/.vagrant.d"
+TMPDIR="$SCRIPT_DIR/vagrant_tmp"
 
-sb "Using SGOINFRE=$SGOINFRE"
+sb "Using project root: $SCRIPT_DIR"
+sb "VAGRANT_HOME is now $VAGRANT_HOME"
 
 mkdir -p "$VAGRANT_HOME" "$TMPDIR"
 chown "$(id -u):$(id -g)" "$VAGRANT_HOME" "$TMPDIR" 2>/dev/null || true
@@ -36,7 +37,7 @@ fi
 
 sb "Starting VM with VAGRANT_HOME=$VAGRANT_HOME and TMPDIR=$TMPDIR"
 export VAGRANT_HOME TMPDIR
-cd "$SGOINFRE"
+cd "$SCRIPT_DIR"
 vagrant up --provider=virtualbox
 
 sb "Done"
