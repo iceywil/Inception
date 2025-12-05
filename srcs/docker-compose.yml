@@ -23,7 +23,7 @@ services:
       test: ["CMD", "mysqladmin", "ping", "--silent"]
       interval: 5s
       timeout: 10s
-      retries: 10
+      retries: 100
       start_period: 10s
 
   # Defines the Nginx web server service.
