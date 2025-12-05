@@ -28,6 +28,8 @@ RUN chmod 755 /var/www/html
 # Change the owner of the web root directory to the www-data user and group
 RUN chown -R www-data:www-data /var/www/html
 
+EXPOSE 443
+
 # Set the default command to run when the container starts, keeping Nginx in the foreground
 CMD [ "nginx", "-g", "daemon off;" ]
 

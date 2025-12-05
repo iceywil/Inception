@@ -28,5 +28,7 @@ RUN chmod +x /tmp/tools/auto_config.sh
 # Provide wp-config template at a known path used by auto_config.sh
 COPY conf/wp-config.php /wp-config.php
 
+EXPOSE 9000
+
 # Set the default command to run the auto_config.sh script when the container starts
 CMD ["/bin/bash", "/tmp/tools/auto_config.sh"]
