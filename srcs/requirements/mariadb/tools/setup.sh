@@ -1,15 +1,16 @@
 #!/bin/bash
 set -e
 
-# If the database directory already exists, it means the setup has been done.
-# So, just start the server.
-if [ -d "/var/lib/mysql/${SQL_DATABASE}" ]; then
-    echo "MariaDB: Database already exists, skipping initialization."
-else
+# If the database directory is empty, it means the setup has not been done.
+# So, initialize the database and then start the server.
+if [ -z "$(ls -A /var/lib/mysql)" ]; then
     echo "MariaDB: Database not found, running initialization."
     
-    # Start the MariaDB service temporarily.
-    service mariadb start
+    # Initialize the database directory. This is a standard first step.
+    mysql_install_db --user=mysql --datadir=/var/lib/mysql
+    
+    # Start the MariaDB service temporarily in the background.
+    mysqld_safe --datadir=/var/lib/mysql &
     
     # Wait for it to be ready.
     for i in {1..30}; do
@@ -32,8 +33,10 @@ else
         echo "MariaDB: Failed to shutdown with password, trying without..." >&2
         mysqladmin shutdown || true
     fi
+else
+    echo "MariaDB: Database already exists, skipping initialization."
 fi
 
 # The main command for the container, runs MariaDB in the foreground.
 echo "MariaDB: Starting server."
-exec mysqld_safe
+exec "$@"
