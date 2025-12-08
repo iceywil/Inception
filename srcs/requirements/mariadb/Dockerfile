@@ -16,5 +16,5 @@ RUN chmod +x /tmp/tools/setup.sh
 # Run the setup script when the container starts. The script starts the
 # server and then runs the SQL setup before exec'ing mysqld_safe so the
 # container will keep running.
-ENTRYPOINT ["/tmp/tools/setup.sh"]
-CMD ["mysqld_safe"]
+
+ENTRYPOINT ["bash", "/tmp/tools/setup.sh"]

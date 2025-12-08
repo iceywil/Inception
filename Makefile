@@ -26,10 +26,12 @@ down:
 # Clean up: stop services and remove volumes
 clean: down
 	@echo "Cleaning up..."
+	@echo "Shutting down dockers..."
 	docker compose -f $(COMPOSE_FILE) down -v
+	@echo "Pruning volumes..."
+	docker system prune -a --volumes -f
 	@echo "Removing data directories..."
-	sudo rm -rf $(DATA_DIR_MARIADB)
-	sudo rm -rf $(DATA_DIR_WORDPRESS)
+	sudo rm -rf /home/wscherre/data
 
 # Full clean: clean and remove images
 fclean: clean

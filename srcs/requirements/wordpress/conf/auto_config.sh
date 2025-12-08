@@ -36,7 +36,7 @@ sed -i "s|pwd|${SQL_PASSWORD}|g" wp-config.php
 # Wait for MariaDB to become reachable before attempting WP install. This avoids intermittent failures
 # when the WordPress container starts before the DB is ready.
 echo "Waiting for MariaDB at 'mariadb' to accept connections..."
-max_attempts=60
+max_attempts=100
 attempt=0
 until mysql -h mariadb -u"${SQL_USER}" -p"${SQL_PASSWORD}" -e 'SELECT 1;' >/dev/null 2>&1; do
 	attempt=$((attempt+1))
@@ -47,7 +47,7 @@ until mysql -h mariadb -u"${SQL_USER}" -p"${SQL_PASSWORD}" -e 'SELECT 1;' >/dev/
 		exit 1
 	fi
 	echo "MariaDB not ready yet (attempt ${attempt}/${max_attempts}), sleeping 2s..."
-	sleep 2
+	sleep 5
 done
 echo "MariaDB is reachable. Proceeding with WordPress setup."
 
