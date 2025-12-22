@@ -21,15 +21,6 @@ if [ ! -f index.php ]; then
 	wp core download --allow-root
 fi
 
-# Copy the wp-config template into place
-cp /wp-config.php /var/www/html/wp-config.php
-
-# Replace placeholder database credentials in wp-config.php with actual values from environment variables.
-# Use '|' as delimiter to avoid errors if values contain '/'. Use global replacement for safety.
-sed -i "s|db1|${SQL_DATABASE}|g" wp-config.php
-sed -i "s|user|${SQL_USER}|g" wp-config.php
-sed -i "s|pwd|${SQL_PASSWORD}|g" wp-config.php
-
 # Wait for MariaDB to become reachable before attempting WP install. This avoids intermittent failures
 # when the WordPress container starts before the DB is ready.
 echo "Waiting for MariaDB at 'mariadb' to accept connections..."
@@ -39,8 +30,6 @@ until mysql -h mariadb -u"${SQL_USER}" -p"${SQL_PASSWORD}" -e 'SELECT 1;' >/dev/
 	attempt=$((attempt+1))
 	if [ "$attempt" -ge "$max_attempts" ]; then
 		echo "ERROR: Could not connect to MariaDB after ${max_attempts} attempts." >&2
-		echo "Dumping current /var/www/html/wp-config.php for debugging:" >&2
-		sed -n '1,200p' wp-config.php >&2 || true
 		exit 1
 	fi
 	echo "MariaDB not ready yet (attempt ${attempt}/${max_attempts}), sleeping 2s..."
@@ -50,6 +39,14 @@ echo "MariaDB is reachable. Proceeding with WordPress setup."
 
 # Run the WordPress installation process only if the site isn't already installed
 if ! wp core is-installed --allow-root >/dev/null 2>&1; then
+	# Copy the wp-config template into place
+	cp /wp-config.php /var/www/html/wp-config.php
+
+	# Replace placeholder database credentials in wp-config.php with actual values from environment variables.
+	# Use '|' as delimiter to avoid errors if values contain '/'. Use global replacement for safety.
+	sed -i "s|db1|${SQL_DATABASE}|g" wp-config.php
+	sed -i "s|user|${SQL_USER}|g" wp-config.php
+	sed -i "s|pwd|${SQL_PASSWORD}|g" wp-config.php
 	echo "Running wp core install..."
 	wp core install --url="${DOMAIN_NAME}/" --title="${WP_TITLE}" --admin_user="${WP_ADMIN_USR}" --admin_password="${WP_ADMIN_PWD}" --admin_email="${WP_ADMIN_EMAIL}" --skip-email --allow-root
 
