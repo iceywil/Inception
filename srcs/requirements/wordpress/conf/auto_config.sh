@@ -7,9 +7,6 @@ set -euo pipefail
 mkdir -p /var/www/html
 cd /var/www/html
 
-# Remove any existing files in the directory to ensure a clean installation.
-rm -rf ./* || true
-
 # Download WP-CLI if not already present
 if [ ! -x /usr/local/bin/wp ]; then
 	echo "Installing wp-cli..."

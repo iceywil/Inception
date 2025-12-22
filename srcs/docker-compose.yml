@@ -2,6 +2,7 @@
 services:
   # Defines the MariaDB database service.
   mariadb:
+    image: mariadb
     container_name: mariadb # Sets a custom name for the container for easier identification.
     networks:
       - inception # Connects this service to the 'inception' network, allowing it to communicate with other services on the same network.
@@ -27,6 +28,7 @@ services:
 
   # Defines the Nginx web server service.
   nginx:
+    image: nginx
     container_name: nginx
     volumes:
       - wordpress:/var/www/html # Mounts the 'wordpress' volume to Nginx's web root, so it can serve the WordPress files.
@@ -44,6 +46,7 @@ services:
 
   # Defines the WordPress service.
   wordpress:
+    image: wordpress
     container_name: wordpress
     env_file:
       - .env
